@@ -1,0 +1,2 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+data_fetcher_base.access_transfer_log,access_transfer_log,data_fetcher_base.model_transfer_log,base.group_user,1,1,1,0
