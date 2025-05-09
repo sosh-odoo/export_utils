@@ -1,0 +1,3 @@
+id,name,model_id/id,group_id/id,perm_read,perm_write,perm_create,perm_unlink
+access_sync_user,access_sync,model_sync,base.group_user,1,1,1,1
+data_fetcher_salesforce.access_salesforce_odoo_mapping,access_salesforce_odoo_mapping,data_fetcher_salesforce.model_salesforce_odoo_mapping,base.group_user,1,0,0,0 

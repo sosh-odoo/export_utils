@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+<record id="salesforce_transfer_log_list" model="ir.ui.view">
+    <field name="name">salesforce_transfer_log_list</field>
+    <field name="model">sync</field>
+    <field name="arch" type="xml">
+        <list string="Salesforce Sync Log">
+            <field name="name"/>
+            <field name="sync_status"/>
+            <field name="sync_type"/>
+            <field name="transfer_date"/>
+            <field name="error_message"/>
+        </list>
+    </field>
+</record>
+
+<record id="salesforce_transfer_log_action" model="ir.actions.act_window">
+    <field name="name">Salesforce Sync Log</field>
+    <field name="res_model">sync</field>
+    <field name="view_mode">list</field>
+</record>
+
+<menuitem id="salesforce_root" name="Salesforce Sync Log" action="salesforce_transfer_log_action"></menuitem>
+</odoo>
