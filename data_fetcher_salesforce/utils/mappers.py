@@ -1,8 +1,8 @@
 from typing import Dict, Any, List, Optional
-    
+
 def map_account_to_partner(sf_account: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Map Salesforce Account to Odoo Partner
+    Map Salesforce Account to Odoo res.partner
     """
     # Map ownership to is_public
     ownership = sf_account.get("Ownership")
@@ -11,7 +11,7 @@ def map_account_to_partner(sf_account: Dict[str, Any]) -> Dict[str, Any]:
         is_public = "public" in (ownership.lower() or "")
     
     return {
-        "name": sf_account.get("Name"),
+        "name": sf_account.get("Name"), 
         "phone": sf_account.get("Phone"),
         "website": sf_account.get("Website"),
         "ref": sf_account.get("Id"),
@@ -24,6 +24,7 @@ def map_account_to_partner(sf_account: Dict[str, Any]) -> Dict[str, Any]:
         "partner_longitude": sf_account.get("BillingLongitude"),
         # "industry_id/.id": sf_account.get("Industry"),
         "is_company": "true",
+        "company_type": "company",
         "is_public": is_public,
         # Additional info can be stored in comment field or custom field
         "comment": sf_account.get("Description"),
@@ -31,7 +32,7 @@ def map_account_to_partner(sf_account: Dict[str, Any]) -> Dict[str, Any]:
 
 def map_contact_to_partner(sf_contact: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Map Salesforce Contact to Odoo Partner
+    Map Salesforce Contact to Odoo res.partner
     """
     return {
         "name": f"{sf_contact.get('FirstName', '')} {sf_contact.get('LastName', '')}".strip(),
@@ -44,8 +45,7 @@ def map_contact_to_partner(sf_contact: Dict[str, Any]) -> Dict[str, Any]:
         "street": sf_contact.get("MailingStreet"),
         "city": sf_contact.get("MailingCity"),
         # "country_id": sf_contact.get("MailingCountry"),
-        # "country_id/name": "Australia",
-        # "state_id/code": sf_contact.get("MailingState"),
+        # "state_id": sf_contact.get("MailingState"),
         "zip": sf_contact.get("MailingPostalCode"),
         # "title/.id": sf_contact.get("Salutation"),
         "partner_latitude": sf_contact.get("MailingLatitude"),
@@ -55,12 +55,12 @@ def map_contact_to_partner(sf_contact: Dict[str, Any]) -> Dict[str, Any]:
         "company_type": "person",
         "lang": sf_contact.get("Languages__c"),
         "comment": sf_contact.get("Description"),
-        "parent_id/.id": sf_contact.get("AccountId"),  # Used to link to parent company
+        # "parent_id/.id": sf_contact.get("AccountId"),  # Used to link to parent company
     }
 
 def map_lead_to_crm(sf_lead: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Map Salesforce Lead to Odoo CRM Lead
+    Map Salesforce Lead to Odoo crm.lead
     """
     return {
         "referred": sf_lead.get("Id"),
@@ -79,7 +79,7 @@ def map_lead_to_crm(sf_lead: Dict[str, Any]) -> Dict[str, Any]:
 
 def map_opportunity_to_crm(sf_opportunity: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Map Salesforce Opportunity to Odoo CRM Opportunity
+    Map Salesforce Opportunity to Odoo crm.lead(opportunity)
     """
     return {
         "referred": sf_opportunity.get("Id"),
@@ -94,68 +94,9 @@ def map_opportunity_to_crm(sf_opportunity: Dict[str, Any]) -> Dict[str, Any]:
         "ref": sf_opportunity.get("AccountId") 
     }
 
-def map_sf_invoice_to_odoo(sf_invoice: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Map Salesforce blngInvoicec fields to Odoo account.move fields
-    """
-    # Calculate invoice status based on Salesforce status
-    state = 'draft'
-    if sf_invoice.get('blngInvoiceStatusc') == 'Posted':
-        state = 'posted'
-    elif sf_invoice.get('blngInvoiceStatusc') == 'Cancelled':
-        state = 'cancel'
-    
-    # Calculate payment status based on Salesforce payment status
-    payment_state = 'not_paid'
-    if sf_invoice.get('blngPaymentStatusc') == 'Paid':
-        payment_state = 'paid'
-    elif sf_invoice.get('blngPaymentStatusc') == 'Partially Paid':
-        payment_state = 'partial'
-    
-    return {
-        "name": sf_invoice.get("Name"),  # Invoice number from Salesforce as reference
-        "ref": sf_invoice.get("Id"),  # Store SF ID for future reference
-        "move_type": "out_invoice",  # Customer invoice
-        "state": state,
-        "payment_state": payment_state,
-        "invoice_date": sf_invoice.get("blng__InvoiceDate__c"),
-        "invoice_date_due": sf_invoice.get("blng__DueDate__c"),
-        "date": sf_invoice.get("blng__InvoiceDate__c"),  # Accounting date
-        # Partner information - will need to be resolved during sync
-        "ref": sf_invoice.get("blng__Account__c"),
-        "amount_total": sf_invoice.get("blng__TotalAmount__c", 0.0),
-        "amount_untaxed": sf_invoice.get("blng__Subtotal__c", 0.0),
-        "amount_tax": sf_invoice.get("blng__TaxAmount__c", 0.0),
-        "amount_residual": sf_invoice.get("blng__Balance__c", 0.0),
-        "narration": sf_invoice.get("blng__Notes__c"),
-        "sf_order_id": sf_invoice.get("blng__Order__c"),
-    }
-
-def map_invoice_line_to_odoo(sf_invoice_line: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Map Salesforce Invoice Line (blng__InvoiceLine__c) to Odoo Invoice Line (account_move_line)
-    """
-    return {
-        "matching_number": sf_invoice_line.get("Id"),
-        "name": sf_invoice_line.get("Name", ""),
-        "quantity": sf_invoice_line.get("blng__Quantity__c", 1.0),
-        "price_unit": sf_invoice_line.get("blng__UnitPrice__c", 0.0),
-        "price_subtotal": sf_invoice_line.get("blng__Subtotal__c", 0.0),
-        "price_total": sf_invoice_line.get("blng__TotalAmount__c", 0.0),
-        "balance": sf_invoice_line.get("blng__Balance__c", 0.0),
-        "date": sf_invoice_line.get("blng__ChargeDate__c"),
-        "date_maturity": sf_invoice_line.get("blng__DueDate__c"),
-        "display_type": "product",  # Default value, may need mapping based on blng__ChargeType__c
-        # Fields that will be resolved by the sync process
-        "sf_invoice_id": sf_invoice_line.get("blng__Invoice__c"),
-        "sf_product_id": sf_invoice_line.get("blng__Product__c"),
-        # Additional fields that might be useful
-        "tax_base_amount": sf_invoice_line.get("blng__TaxAmount__c", 0.0),
-    }
-
 def map_product_to_odoo(sf_product: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Map Salesforce Product to Odoo Product
+    Map Salesforce Product + default(0th index) PricebookEntry to Odoo product.template
     """
     # product_type = "consu" if sf_product.get("Type") == "Goods" else "service"
     product_type = "consu" if sf_product.get("SBQQ__ChargeType__c") == "One-Time" else "service"
@@ -174,7 +115,7 @@ def map_product_to_odoo(sf_product: Dict[str, Any]) -> Dict[str, Any]:
 
 def map_order_to_odoo(sf_order: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Map Salesforce Order to Odoo Sale Order
+    Map Salesforce Order to Odoo sale.order
     """
     # Map Salesforce status to Odoo state
     state = "sale" if sf_order.get("Status") == "Activated" else "sent"
@@ -191,7 +132,7 @@ def map_order_to_odoo(sf_order: Dict[str, Any]) -> Dict[str, Any]:
 
 def map_order_line_to_odoo(sf_order_item: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Map Salesforce Order Item to Odoo Sale Order Line
+    Map Salesforce Order Item to Odoo sale.order.line
     """
     return {
         "virtual_id": sf_order_item.get("Id"),

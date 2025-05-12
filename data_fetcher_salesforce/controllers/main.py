@@ -33,3 +33,4 @@ class SalesforceSync(BaseSyncController):
         else:
             logger.error("Salesforce API authentication failed.")
             return self.transfer_error("Salesforce authentication failed")
+        

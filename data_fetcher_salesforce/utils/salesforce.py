@@ -1,26 +1,16 @@
 import requests
 import logging
 from typing import Dict, Any, List, Optional
-# from config.credentials import load_credentials
-from odoo.http import request
-
 logger = logging.getLogger(__name__)
 
 class SalesforceAPI:
     def __init__(self, credentials):
-        # self.credentials = request.session.get('salesforce_creds', {})
         self.credentials = credentials
         self.access_token = None
         self.instance_url = None
         # self.api_version = "v59.0"
     
     def authenticate(self) -> bool:
-        """
-        Authenticate with Salesforce API
-        
-        Returns:
-            True if authentication successful, False otherwise
-        """
         try:
             auth_url = "https://login.salesforce.com/services/oauth2/token"
             data = {
@@ -47,27 +37,12 @@ class SalesforceAPI:
             return False
     
     def get_request_headers(self) -> Dict[str, str]:
-        """
-        Get request headers for Salesforce API
-        
-        Returns:
-            Dictionary of headers
-        """
         return {
             "Authorization": f"Bearer {self.access_token}",
             "Content-Type": "application/json"
         }
     
     def query(self, soql_query: str, batch_size: int, offset: int) -> List[Dict[str, Any]]:
-        """
-        Execute a SOQL query
-        
-        Args:
-            soql_query: SOQL query string
-            
-        Returns:
-            List of records
-        """
         if not self.access_token:
             if not self.authenticate():
                 return []
