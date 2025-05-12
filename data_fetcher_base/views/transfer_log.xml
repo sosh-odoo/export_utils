@@ -21,5 +21,5 @@
     <field name="view_mode">list</field>
 </record>
 
-<menuitem id="import_root" name="Import Log" web_icon="data_fetcher_base, static/description/icon.png" action="transfer_log_action"></menuitem>
+<menuitem id="import_root" name="Import Log" web_icon="data_fetcher_base, static/description/icon.png" sequence="1" action="transfer_log_action"></menuitem>
 </odoo>

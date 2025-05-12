@@ -66,28 +66,6 @@ class OdooService:
         except Exception as error:
             _logger.error(f'Error creating {model} in Odoo: {str(error)}')
             raise error
-        
-    def create_multi_records(self, model, data_list):
-        """Create multiple records in bulk
-        
-        Args:
-            model (str): The Odoo model name
-            data_list (list): List of dictionaries containing record data
-            
-        Returns:
-            list: List of created record IDs
-        """
-        try:
-            record_ids = self.models.execute_kw(
-                self.db, self.uid, self.api_key,
-                model, 'create',
-                [data_list]
-            )
-            _logger.info(f'Successfully created {len(record_ids)} {model} records in Odoo')
-            return record_ids
-        except Exception as error:
-            _logger.error(f'Error bulk creating {model} records in Odoo: {str(error)}')
-            raise error
 
     def update_record(self, model, id, data):
         """Update a record"""
@@ -119,10 +97,6 @@ class OdooService:
                 model, 'load',
                 [fields, data_rows]
             )
-            # created_count = len(result.get('ids', []))
-            # _logger.info(f'Successfully loaded {created_count} {model} records via `load()`')
-            # if result.get('messages'):
-            #     _logger.warning(f'Load messages: {result["messages"]}')
             return result
         except Exception as error:
             _logger.error(f'Error using load() for {model}: {str(error)}', exc_info=True)
@@ -242,7 +216,7 @@ class OdooService:
             # Check if we have this country in our map
             if str(country_id) not in state_map and country_id not in state_map:
                 _logger.warning(f"Country ID {country_id} not found in state map")
-                return self._fallback_get_state_id(country_id, province_code, state_name, create_if_not_found)
+                return None
                 
             # Convert country_id to string for JSON compatibility
             country_key = str(country_id)
@@ -262,74 +236,10 @@ class OdooService:
                     return state_map[country_key]['name_map'][name_lower]
             
             # If not found in our map, use the fallback method
-            return self._fallback_get_state_id(country_id, province_code, state_name, create_if_not_found)
+            return None
             
         except Exception as error:
             _logger.error(f'Error in state lookup: {str(error)}')
-            return self._fallback_get_state_id(country_id, province_code, state_name, create_if_not_found)
-    
-    def _fallback_get_state_id(self, country_id: int, province_code: str = None, state_name: str = None, create_if_not_found: bool = False) -> Optional[int]:
-        """Fallback method to get state ID directly from Odoo"""
-        _logger.info(f"Using fallback method to get state ID for country {country_id}, code: {province_code}, name: {state_name}")
-        try:
-            # Prefer search by code
-            if province_code:
-                states = self.search_read(
-                    'res.country.state',
-                    [
-                        ['code', '=', province_code],
-                        ['country_id', '=', country_id]
-                    ],
-                    ['id', 'name'],
-                    limit=1
-                )
-                if states:
-                    return states[0]['id']
-            
-            # Then fallback to search by name
-            if state_name:
-                states = self.search_read(
-                    'res.country.state',
-                    [
-                        ['name', 'ilike', state_name],
-                        ['country_id', '=', country_id]
-                    ],
-                    ['id', 'name'],
-                    limit=1
-                )
-                if states:
-                    return states[0]['id']
-            
-            # Optionally create state if not found
-            if create_if_not_found and state_name:
-                code = (province_code or state_name[:2]).upper()
-                state_id = self.create_record('res.country.state', {
-                    'name': state_name,
-                    'code': code,
-                    'country_id': country_id,
-                })
-                
-                # Update our map with the new state
-                if self._state_map is not None:
-                    country_key = str(country_id)
-                    if country_key not in self._state_map:
-                        self._state_map[country_key] = {'code_map': {}, 'name_map': {}}
-                    
-                    self._state_map[country_key]['code_map'][code.lower()] = state_id
-                    self._state_map[country_key]['name_map'][state_name.lower()] = state_id
-                    
-                    # Save updated map to file
-                    try:
-                        with open(self._state_map_path, 'w') as f:
-                            json.dump(self._state_map, f)
-                    except Exception as e:
-                        _logger.warning(f"Failed to update state map file: {str(e)}")
-                
-                return state_id
-            
-            return None
-        except Exception as error:
-            _logger.error(f'Error in fallback state ID lookup: {str(error)}')
             return None
 
     def find_or_create_attribute(self, attribute_name):

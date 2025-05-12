@@ -43,10 +43,11 @@ class SyncController(http.Controller):
     
     def _store_odoo_credentials(self, data):
         """Store Odoo credentials in system parameters"""
-        request.env['ir.config_parameter'].sudo().set_param('odoo.url', data.get('odoo_url'))
-        request.env['ir.config_parameter'].sudo().set_param('odoo.db', data.get('odoo_db'))
-        request.env['ir.config_parameter'].sudo().set_param('odoo.username', data.get('odoo_username'))
-        request.env['ir.config_parameter'].sudo().set_param('odoo.password', data.get('odoo_api_key'))
+        config = request.env['ir.config_parameter'].sudo()
+        config.set_param('odoo.url', data.get('odoo_url'))
+        config.set_param('odoo.db', data.get('odoo_db'))
+        config.set_param('odoo.username', data.get('odoo_username'))
+        config.set_param('odoo.password', data.get('odoo_api_key'))
     
     def transfer_success(self):
         return request.render('data_fetcher_base.portal_import_data_result', {
