@@ -4,34 +4,83 @@ import logging
 
 _logger = logging.getLogger(__name__)
 
-def map_address(source, parent_contact_id, address_type, country_id=False, state_id=False):
-    """Maps Shopify address to Odoo res.partner address format"""
-    is_order = 'order_number' in source
-    id_field = 'order_number' if is_order else 'name'
-    ref_prefix = 'order' if is_order else 'abandoned_cart'
-    address_key = 'shipping_address' if address_type == 'delivery' else 'billing_address'
+def map_company_data(shopify_customer, odoo_service, country_map):
+    """Map Shopify customer data to Odoo company format"""
+    address = shopify_customer.get('default_address', {}) or {}
+    company_name = address.get('company', '').strip() if address.get('company') else False
     
-    if address_key not in source or not source[address_key]:
-        return False
+    if not company_name:
+        return None
+            
+    province_code = address.get('province_code', '')
+    country_code = address.get('country_code', '').lower() if address.get('country_code') else ''
+    province = address.get('province', '')
     
-    address = source[address_key]
+    # Get country ID from map
+    country_id = country_map.get(country_code) if country_code else None
+    
+    # Get state ID from state map
+    state_id = None
+    if country_id and (province_code or province):
+        state_id = odoo_service.get_state_id(country_id, province_code, province)
+        
     return {
-        'type': 'delivery' if address_type == 'delivery' else 'invoice',
-        'parent_id': parent_contact_id,
-        'name': f"{address.get('first_name', '')} {address.get('last_name', '')}".strip(),
-        'phone': address.get('phone') or source.get('phone'),
-        'email': source.get('email'),
+        'name': company_name,
+        'is_company': True,
+        'company_type': 'company',
+        'customer_rank': 1,
         'street': address.get('address1', ''),
         'street2': address.get('address2', ''),
         'city': address.get('city', ''),
         'zip': address.get('zip', ''),
-        'state_id': state_id,
-        'country_id': country_id,
-        'comment': f"{address_type.capitalize()} address from Shopify {ref_prefix} #{source.get(id_field)}",
-        'ref': f"shopify_{address_type}_{source.get('id')}",
-        'active': True,
+        'state_id/.id': state_id,
+        'country_id/.id': country_id,
+        'ref': f"shopify_company_{shopify_customer['id']}",
+        'active': True
     }
 
+def map_customer_data(shopify_customer, odoo_service, country_map, company_id_map=None):
+    """Map Shopify customer data to Odoo customer format"""
+    address = shopify_customer.get('default_address', {}) or {}
+    province_code = address.get('province_code', '')
+    country_code = address.get('country_code', '').lower() if address.get('country_code') else ''
+    province = address.get('province', '')
+    
+    # Get country ID from map
+    country_id = country_map.get(country_code) if country_code else None
+    
+    # Get state ID from state map
+    state_id = None
+    if country_id and (province_code or province):
+        state_id = odoo_service.get_state_id(country_id, province_code, province)
+    
+    # Get company info and ID if available
+    company_name = address.get('company', '').strip() if address.get('company') else False
+    company_id = False
+    if company_name:
+        # Check if we have the company ID in our map
+        if company_name in company_id_map:
+            company_id = company_id_map[company_name]
+
+    # Prepare customer data
+    full_name = f"{shopify_customer.get('first_name', '')} {shopify_customer.get('last_name', '')}".strip()
+    
+    return {
+        'name': full_name,
+        'email': shopify_customer.get('email'),
+        'parent_id/.id': company_id,
+        'phone': shopify_customer.get('phone'),
+        'street': address.get('address1', ''),
+        'street2': address.get('address2', ''),
+        'city': address.get('city', ''),
+        'zip': address.get('zip', ''),
+        'state_id/.id': state_id,
+        'country_id/.id': country_id,
+        'ref': f"shopify_customer_{shopify_customer['id']}",
+        'active': True,
+        'type': 'contact',
+        'customer_rank': 1
+    }
 
 def map_product(shopify_product):
     """Maps a Shopify product to Odoo product.template and product.product formats"""
@@ -73,37 +122,3 @@ def map_product(shopify_product):
         })
     
     return {'product_template': product_template, 'product_variants': product_variants}
-
-def convert_shopify_date_to_odoo_format(shopify_date):
-    """Converts Shopify ISO 8601 date to Odoo datetime format"""
-    try:
-        if not shopify_date:
-            return False
-        
-        # Parse the ISO 8601 date
-        date_obj = datetime.fromisoformat(shopify_date.replace('Z', '+00:00'))
-        
-        # Format to YYYY-MM-DD HH:MM:SS
-        formatted_date = date_obj.strftime('%Y-%m-%d %H:%M:%S')
-        
-        return formatted_date
-    except Exception as e:
-        _logger.error(f"Error converting date {shopify_date}: {str(e)}")
-        return False
-
-def find_order_state(shopify_order):
-    """Determines the Odoo order state based on Shopify order status"""
-    fulfillment_status = shopify_order.get('fulfillment_status')
-    financial_status = shopify_order.get('financial_status')
-    
-    if fulfillment_status == 'fulfilled':
-        return 'sale'
-    elif fulfillment_status is None:
-        if financial_status == 'paid':
-            return 'sale'
-        elif financial_status == 'refunded':
-            return 'cancel'
-    elif fulfillment_status == 'restocked':
-        return 'cancel'
-    else:
-        return 'draft'

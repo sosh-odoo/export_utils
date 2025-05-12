@@ -5,7 +5,7 @@
             <field name="model_id" ref="data_fetcher_base.model_transfer_log"/>
             <field name="state">code</field>
             <field name="code">model.process_all_transfers()</field>
-            <field name="interval_number">1</field>
+            <field name="interval_number">15</field>
             <field name="interval_type">minutes</field>
             <field name="active">False</field>
         </record>

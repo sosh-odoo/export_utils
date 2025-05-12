@@ -4,7 +4,7 @@
     'version': '18.0',
     'depends': ['data_fetcher_base'],
     'author': 'CodeX',
-    'category': 'E-commerce',
+    'category': 'Import Data',
     'website': 'https://www.odoo.com',
     'description': ' Sync products and orders from Shopify to Odoo',
     'data': [

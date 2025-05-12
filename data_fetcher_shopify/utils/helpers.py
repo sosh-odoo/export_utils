@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
+from datetime import datetime
 import logging
 import time
-from ..utils.mappers import map_address # type: ignore
 
 _logger = logging.getLogger(__name__)
 
@@ -534,43 +534,67 @@ class ShopifyHelpers:
         
         _logger.info(f'Extracted attribute options: {attribute_options}')
         return attribute_options
+    
+    def _prepare_order_or_cart_for_load(self, data, customer_id, ref, is_order=True):
+        """Prepare order or abandoned cart data for bulk loading"""
+        return self.stringify_values([
+            customer_id,
+            self._convert_shopify_date_to_odoo_format(data.get('created_at')),
+            ref,
+            data.get('note', ''),
+            self._find_order_state(data) if is_order else 'draft',
+        ])
 
-    # def _handle_address(self, source, customer_id, address_type, odoo_service):
-    #     """Handle creation of customer addresses"""
-    #     is_order = 'order_number' in source
-    #     source_address = source.get('shipping_address') if address_type == 'delivery' else source.get('billing_address')
+    def _prepare_order_line_for_load(self, item, odoo_order_id, odoo_product_id, order_ref, idx):
+        """Prepare order line data for bulk loading"""
+        # Handle variant title for name
+        name = item.get('name', '')
+        if item.get('variant_title'):
+            name = f"{name} - {item.get('variant_title')}"
         
-    #     if not customer_id or not source_address:
-    #         return
+        return self.stringify_values([
+            odoo_order_id,
+            odoo_product_id,
+            name,
+            item.get('quantity', 0),
+            float(item.get('price', 0)),
+        ])
+
+    def _convert_shopify_date_to_odoo_format(self, shopify_date):
+        """Converts Shopify ISO 8601 date to Odoo datetime format"""
+        try:
+            if not shopify_date:
+                return False
+            
+            # Parse the ISO 8601 date
+            date_obj = datetime.fromisoformat(shopify_date.replace('Z', '+00:00'))
+            
+            # Format to YYYY-MM-DD HH:MM:SS
+            formatted_date = date_obj.strftime('%Y-%m-%d %H:%M:%S')
+            
+            return formatted_date
+        except Exception as e:
+            _logger.error(f"Error converting date {shopify_date}: {str(e)}")
+            return False
+
+    def _find_order_state(self, shopify_order):
+        """Determine appropriate order state based on Shopify order data"""
+        fulfillment_status = shopify_order.get('fulfillment_status')
+        financial_status = shopify_order.get('financial_status')
         
-    #     country_id = False
-    #     state_id = False
+        if fulfillment_status == 'fulfilled':
+            return 'sale'
+        elif fulfillment_status is None:
+            if financial_status == 'paid':
+                return 'sale'
+            elif financial_status == 'partially_paid':
+                return 'sent'
+            elif financial_status == 'refunded':
+                return 'cancel'
+        elif fulfillment_status == 'restocked':
+            return 'cancel'
+        else:
+            return 'draft'
         
-    #     country_code = source_address.get('country_code') if is_order else source_address.get('country')
-    #     province_code = source_address.get('province_code') if is_order else source_address.get('province')
-        
-    #     country_id = odoo_service.get_country_id(country_code=country_code)
-    #     if country_id:
-    #         state_id = odoo_service.get_state_id(country_id, province_code=province_code)
-        
-    #     # Check if address already exists
-    #     address_key = f"{source_address.get('address1', '')}-{source_address.get('city', '')}-{source_address.get('zip', '')}".lower()
-        
-    #     domain = [
-    #         ('parent_id', '=', customer_id),
-    #         ('type', '=', 'delivery' if address_type == 'delivery' else 'invoice')
-    #     ]
-        
-    #     existing_addresses = odoo_service.search_read('res.partner', domain, ['street', 'city', 'zip'])
-        
-    #     address_exists = any(
-    #         f"{addr.get('street', '')}-{addr.get('city', '')}-{addr.get('zip', '')}".lower() == address_key
-    #         for addr in existing_addresses
-    #     )
-        
-    #     if not address_exists:
-    #         address_data = map_address(source, customer_id, address_type, country_id, state_id)
-    #         if address_data:
-    #             odoo_service.create_record('res.partner', address_data)
-    #             id_field = 'order_number' if is_order else 'name'
-    #             _logger.info(f"Created {address_type} address for customer {customer_id} from {'order' if is_order else 'cart'} #{source[id_field]}")
+    def stringify_values(self, row):
+        return [str(val) if isinstance(val, (int, float, bool)) else (val or '') for val in row]

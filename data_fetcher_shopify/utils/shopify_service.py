@@ -99,8 +99,7 @@ class ShopifyService:
             page += 1
 
         return f"{label.capitalize()} fetched successfully"
-
-    
+  
     def _create_transfer_with_attachment(self, category, page, data):
         json_str = json.dumps(data)
         encoded = base64.b64encode(json_str.encode('utf-8'))
