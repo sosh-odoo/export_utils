@@ -364,47 +364,6 @@ class OdooService:
         except Exception as error:
             _logger.error(f'Error checking if order exists: {str(error)}')
             raise error
-    
-    def get_title_id(self, title_shortcut: str) -> Optional[int]:
-        """
-        Get title ID by shortcut
-        """
-        if not title_shortcut:
-            return None
-        
-        title_map = {"Ms.": "Miss"}
-        normalized_title = title_map.get(title_shortcut, title_shortcut)
-        
-        titles = self.search_read(
-            'res.partner.title', 
-            [('shortcut', 'ilike', f'%{normalized_title}%')], 
-            ['id'], 
-            limit=1
-        )
-        return titles[0]['id'] if titles else None
-    
-    def get_industry_id(self, industry_name: str) -> Optional[int]:
-        """
-        Get or create industry ID
-        """
-        if not industry_name:
-            return None
-        
-        # Search for existing industry
-        industries = self.search_read(
-            'res.partner.industry',
-            [('name', 'ilike', industry_name)],
-            ['id'],
-            limit=1
-        )
-        if industries:
-            return industries[0]['id']
-        
-        # Create new industry
-        return self.create_record('res.partner.industry', {
-            'name': industry_name,
-            'active': True
-        })
 
     def get_source_id(self, source_name: str) -> Optional[int]:
         """
