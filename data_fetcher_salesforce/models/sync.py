@@ -3,12 +3,13 @@ import json
 import logging
 from typing import Dict, Any, List, Tuple
 from odoo.addons.data_fetcher_base.models.odoo_service import OdooService # type: ignore
+from odoo.http import UserError # type: ignore
 from ..utils.mappers import map_account_to_partner, map_contact_to_partner, map_product_to_odoo, map_lead_to_crm, map_opportunity_to_crm, map_order_to_odoo, map_order_line_to_odoo # type: ignore
 from ..utils.helpers import SalesforceHelper # type: ignore
 from ..utils.query import fetch_contacts, fetch_employees, fetch_leads, fetch_opportunities, fetch_products, fetch_orders, fetch_order_lines
 from odoo import api, fields, models
 
-logger = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
 salesforce_helper = SalesforceHelper()
 
 class Sync(models.Model):
@@ -36,7 +37,8 @@ class Sync(models.Model):
     def sync_all(self, sf_api):
         self.fetch_all_sf_data(sf_api, fetch_contacts(), 'account')
         self.fetch_all_sf_data(sf_api, fetch_employees(), 'contact')
-        self.fetch_all_sf_data(sf_api, fetch_products(), 'product')
+        standard_pricebook_id = self.get_standard_pricebook_id(sf_api)
+        self.fetch_all_sf_data(sf_api, fetch_products(standard_pricebook_id), 'product')
         self.fetch_all_sf_data(sf_api, fetch_leads(), 'lead')
         self.fetch_all_sf_data(sf_api, fetch_opportunities(), 'opportunity')
         self.fetch_all_sf_data(sf_api, fetch_orders(), 'order')
@@ -54,7 +56,7 @@ class Sync(models.Model):
             self.fetch_and_store(records, sync_type)
             total_fetched += len(records)
             offset += batch_limit
-            logger.info(f"Fetched and stored {total_fetched} records for sync type '{sync_type}'")
+            _logger.info(f"Fetched and stored {total_fetched} records for sync type '{sync_type}'")
 
     def fetch_and_store(self, records: List[Dict[str, Any]], sync_type: str):
         if not records:
@@ -80,30 +82,52 @@ class Sync(models.Model):
             'mimetype': 'application/json',
         })
     
+    def get_standard_pricebook_id(self, sf_api) -> str:
+        """
+        Query Salesforce to get the Standard Pricebook2 ID
+        """
+        soql_query = "SELECT Id FROM Pricebook2 WHERE IsStandard = TRUE"
+        result = sf_api.query(
+            soql_query, 1, 0
+        )
+        if not result:
+            raise Exception("Standard Pricebook not found in Salesforce.")
+        _logger.info(f"Standard Pricebook2 Salesforce ID: {result}")
+        return result[0]["Id"]
+
     @api.model
     def process_sf_queue(self):
         """Cron method to send data"""
+        transfers = self.search([('sync_status', 'in', ['pending', 'failed'])])
+        _logger.info(f"Pending transfers: {transfers}")
+
         config = self.env['ir.config_parameter'].sudo()
         url = config.get_param('odoo.url')
         db = config.get_param('odoo.db')
         username = config.get_param('odoo.username')
         password = config.get_param('odoo.password')
-        odoo_api = OdooService(url, db, username, password)
-        odoo_api.connect()
+
+        if not all([url, db, username, password]):
+            raise UserError("Missing Odoo credentials in system configuration.")
         
+        if not transfers:
+            _logger.info("No transfers to process.")
+            return "No transfers to process."
+            
+        try:
+            odoo_api = OdooService(url, db, username, password)
+            odoo_api.connect()
+        except Exception as e:
+            _logger.error(f"Failed to connect to target Odoo: {e}")
+            return "Failed to connect to target Odoo."
+
         countries = odoo_api.search_read('res.country', [], ['id', 'name'])
         country_map = {country['name'].lower(): country['id'] for country in countries if country.get('name')}
 
         sync_types = ['account', 'contact', 'product', 'lead', 'opportunity', 'order', 'order_line']
         for sync_type in sync_types:
-            batch_records = self.search([
-                ('transfer_category', '=', sync_type),
-                '|',
-                ('sync_status', '=', 'pending'),
-                ('sync_status', '=', 'failed')
-            ])
-
-            for record in batch_records:
+            type_transfers = transfers.filtered(lambda r: r.transfer_category == sync_type)
+            for record in type_transfers:
                 try:
                     attachment = self.env['ir.attachment'].search([
                         ('res_model', '=', record._name),
@@ -122,7 +146,7 @@ class Sync(models.Model):
                     payload_batch = json.loads(decoded.decode('utf-8'))  # This is now a list
                     processor = getattr(self, f"process_{sync_type}_batch", None)
                     if not processor:
-                        logger.warning(f"No batch processor method defined for sync type '{sync_type}', falling back to individual processing")
+                        _logger.warning(f"No batch processor method defined for sync type '{sync_type}', falling back to individual processing")
                     else:
                         # Use batch processing
                         if sync_type in ['account', 'contact', 'lead']:
@@ -136,7 +160,7 @@ class Sync(models.Model):
                         'sync_status': 'failed',
                         'error_message': str(e)
                     })
-                    logger.error(f"Error processing {sync_type} batch: {str(e)}")
+                    _logger.error(f"Error processing {sync_type} batch: {str(e)}")
 
     def get_odoo_id(self, model_name, sf_id):
         """Get Odoo ID from Salesforce ID"""
@@ -155,7 +179,7 @@ class Sync(models.Model):
             return self._common_ids['res.partner.industry'][industry_name]
         
         # If not in cache, use the original function via RPC
-        industry_id = odoo_api.get_industry_id(industry_name)
+        industry_id = salesforce_helper.get_industry_id(industry_name, odoo_api)
         # Cache the result if found
         if industry_id:
             self._common_ids['res.partner.industry'][industry_name] = industry_id
@@ -168,7 +192,7 @@ class Sync(models.Model):
         if title_name in self._common_ids['res.partner.title']:
             return self._common_ids['res.partner.title'][title_name]
         
-        title_id = odoo_api.get_title_id(title_name)
+        title_id = salesforce_helper.get_title_id(title_name, odoo_api)
         if title_id:
             self._common_ids['res.partner.title'][title_name] = title_id
         return title_id
@@ -225,7 +249,6 @@ class Sync(models.Model):
             industry_name = data["Industry"]
             if industry_name:
                 odoo_data["industry_id/.id"] = self.get_industry_id(industry_name, odoo_api)
-
             row = []
             for field in fields:
                 row.append(odoo_data.get(field, ''))
@@ -233,7 +256,7 @@ class Sync(models.Model):
 
         if rows:
             result = odoo_api.load_records('res.partner', fields, rows)
-            logger.info(f"Batch import result for accounts: {result}")
+            _logger.info(f"Batch import result for accounts: {result}")
 
             if result and result.get('ids'):
                 for sf_id, odoo_id in zip(sf_ids, result['ids']):
@@ -271,7 +294,6 @@ class Sync(models.Model):
             if salutation:
                 title_id = self.get_title_id(salutation, odoo_api)
                 odoo_data["title"] = title_id
-
             row = []
             for field in fields:
                 row.append(odoo_data.get(field, ''))
@@ -279,7 +301,7 @@ class Sync(models.Model):
         
         if rows:
             result = odoo_api.load_records('res.partner', fields, rows)
-            logger.info(f"Batch import result for contacts: {result}")
+            _logger.info(f"Batch import result for contacts: {result}")
 
             if result and result.get('ids'):
                 for sf_id, odoo_id in zip(sf_ids, result['ids']):
@@ -306,7 +328,7 @@ class Sync(models.Model):
 
         if rows:
             result = odoo_api.load_records('product.template', fields, rows)
-            logger.info(f"Batch import result for products: {result}")
+            _logger.info(f"Batch import result for products: {result}")
             
             if result and result.get('ids'):
                 for sf_id, odoo_id, product_name in zip(sf_ids, result['ids'], product_names):
@@ -361,7 +383,7 @@ class Sync(models.Model):
         
         if rows:
             result = odoo_api.load_records('crm.lead', fields, rows)
-            logger.info(f"Batch import result for leads: {result}")
+            _logger.info(f"Batch import result for leads: {result}")
 
             if result and result.get('ids'):
                 for sf_id, odoo_id in zip(sf_ids, result['ids']):
@@ -395,7 +417,7 @@ class Sync(models.Model):
 
         if rows:
             result = odoo_api.load_records('crm.lead', fields, rows)
-            logger.info(f"Batch import result for opportunities: {result}")
+            _logger.info(f"Batch import result for opportunities: {result}")
 
             if result and result.get('ids'):
                 for sf_id, odoo_id in zip(sf_ids, result['ids']):
@@ -423,7 +445,7 @@ class Sync(models.Model):
 
         if rows:
             result = odoo_api.load_records('sale.order', fields, rows)
-            logger.info(f"Batch import result for orders: {result}")
+            _logger.info(f"Batch import result for orders: {result}")
 
             if result and result.get('ids'):
                 for sf_id, odoo_id in zip(sf_ids, result['ids']):
@@ -464,5 +486,5 @@ class Sync(models.Model):
         
         if rows:
             result = odoo_api.load_records('sale.order.line', fields, rows)
-            logger.info(f"Batch import result for order lines: {result}")
+            _logger.info(f"Batch import result for order lines: {result}")
             

@@ -36,33 +36,18 @@ def fetch_opportunities():
     """
     return query
 
-# def fetch_products():
-#     query = """
-#     SELECT Id, Name, ProductCode, Description, IsActive, Family, 
-#             StockKeepingUnit, SBQQ__ChargeType__c 
-#     FROM Product2
-#     """
-#     return query
-
-def fetch_products():
-    query = """
-    SELECT 
-    Id, Name, ProductCode, Description, IsActive, 
-    Family, StockKeepingUnit, SBQQ__ChargeType__c,
-    (SELECT Id, Product2Id, UnitPrice, Pricebook2Id, 
-        IsActive FROM PricebookEntries 
-        WHERE IsActive = TRUE)
-    FROM Product2
-    """
+def fetch_products(standard_pricebook_id):
+    query = f"""
+            SELECT Id, Name, ProductCode, Description, IsActive, Family, 
+                StockKeepingUnit,
+                (SELECT Id, Product2Id, UnitPrice, Pricebook2Id, IsActive 
+                    FROM PricebookEntries 
+                    WHERE IsActive = TRUE 
+                    AND Pricebook2Id = '{standard_pricebook_id}')
+            FROM Product2
+            WHERE IsActive = TRUE
+        """
     return query
-
-# def fetch_product_prices():
-#     query = """
-#     SELECT Id, Product2Id, UnitPrice, Pricebook2Id, IsActive 
-#     FROM PricebookEntry 
-#     WHERE IsActive = TRUE
-#     """
-#     return query
 
 def fetch_orders():
     query = """
