@@ -81,16 +81,6 @@ class OdooService:
             raise error
         
     def load_records(self, model, fields, data_rows):
-        """Load records in bulk using the `load()` method.
-
-        Args:
-            model (str): The Odoo model name (e.g., 'res.partner').
-            fields (list): List of field names (column headers).
-            data_rows (list): List of lists containing record values.
-
-        Returns:
-            dict: Result from the `load()` call, typically includes created record IDs and any errors.
-        """
         try:
             result = self.models.execute_kw(
                 self.db, self.uid, self.api_key,
