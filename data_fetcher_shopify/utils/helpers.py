@@ -7,7 +7,7 @@ _logger = logging.getLogger(__name__)
 
 class ShopifyHelpers:
 
-    def _handle_deleted_variants(self, template_id, shopify_variant_ids, product_variant_map, odoo_service):
+    def _handle_deleted_variants(self, template_id, product_variant_map, odoo_service):
         """Archive variants that exist in Odoo but not in Shopify"""
         try:
             # Get all variants for this template in Odoo
@@ -39,71 +39,6 @@ class ShopifyHelpers:
             _logger.error(f'Error handling deleted variants: {str(e)}', exc_info=True)
             return 0
 
-    def _should_rebuild_attributes(self, template_id, shopify_product, current_attribute_options, odoo_service):
-        """Determine if attributes need rebuilding for a product template"""
-        try:            
-            # Get current attribute lines
-            existing_attr_lines = odoo_service.search_read(
-                'product.template.attribute.line',
-                [('product_tmpl_id', '=', template_id)],
-                ['id', 'attribute_id', 'value_ids'] 
-            )
-            
-            # If no attributes previously but we need them now, rebuild
-            if not existing_attr_lines and current_attribute_options:
-                return True
-            
-            # If attribute counts don't match, rebuild
-            new_attr_count = len(current_attribute_options)
-            if len(existing_attr_lines) != new_attr_count:
-                return True
-            
-            # Check for products with missing attributes
-            products_with_missing_attributes = odoo_service.search_read(
-                'product.product', 
-                [
-                ('product_tmpl_id', '=', template_id),
-                ('product_template_attribute_value_ids', '=', False),
-                ('active', '=', True)
-                ],
-                ['id']
-            )
-            
-            if len(products_with_missing_attributes) > 0:
-                _logger.info(f'Found {products_with_missing_attributes} variants with missing attribute values')
-                return True  # Force rebuild if there are variants with missing attribute values
-            
-            # Compare attribute names and values
-            existing_attr_names = []
-            for line in existing_attr_lines:
-                attr_name = line.attribute_id.name
-                values = [v.name.lower() for v in line.value_ids]
-                existing_attr_names.append({
-                    'name': attr_name,
-                    'values': values
-                })
-            
-            # Check if all current attribute names exist in the new set
-            # AND if all values for each attribute match
-            for existing_attr in existing_attr_names:
-                # If attribute doesn't exist in new set, rebuild
-                if existing_attr['name'] not in current_attribute_options:
-                    return True
-                
-                # Check if all values in the new set exist in the old set
-                new_values = [v.lower() for v in current_attribute_options[existing_attr['name']]]
-                for new_value in new_values:
-                    if new_value not in existing_attr['values']:
-                        # Found a new value that doesn't exist in old set
-                        return True
-            
-            # Everything matches, no need to rebuild
-            return False
-        except Exception as e:
-            _logger.error(f'Error checking if attributes need rebuilding: {str(e)}', exc_info=True)
-            # Default to not rebuilding to avoid unnecessary work
-            return False
-
     def _handle_single_variant(self, template_id, variant, product_variant_map, shopify_variant_id, odoo_service):
         """Handle creation or update of a single product variant"""
         try:
@@ -124,10 +59,10 @@ class ShopifyHelpers:
                 product_variant_map[shopify_variant_id] = variant_id
                 
                 # Update the existing variant but preserve identifiers
-                odoo_service.update_record('product.product', variant_id, {
-                    'weight': variant.get('weight'),
-                    'standard_price': variant.get('standard_price')
-                })
+                # odoo_service.update_record('product.product', variant_id, {
+                #     'weight': variant.get('weight'),
+                #     'standard_price': variant.get('standard_price')
+                # })
                 
                 return variant_id
             
@@ -151,12 +86,12 @@ class ShopifyHelpers:
                 if existing_variants:
                     # Update the existing variant instead of creating a new one
                     variant_id = existing_variants[0]['id']
-                    odoo_service.update_record('product.product', variant_id, {
-                        'default_code': variant.get('default_code'),
-                        'barcode': variant.get('barcode'),
-                        'weight': variant.get('weight'),
-                        'standard_price': variant.get('standard_price')
-                    })
+                    # odoo_service.update_record('product.product', variant_id, {
+                    #     'default_code': variant.get('default_code'),
+                    #     'barcode': variant.get('barcode'),
+                    #     'weight': variant.get('weight'),
+                    #     'standard_price': variant.get('standard_price')
+                    # })
                     
                     product_variant_map[shopify_variant_id] = variant_id
                     _logger.info(f"Updated default variant for template {template_id}")
@@ -252,10 +187,10 @@ class ShopifyHelpers:
                 if attribute_name in attribute_line_map:
                     line_id = attribute_line_map[attribute_name]['lineId']
                     # Update existing line with any new values
-                    value_ids = list(value_map.values())
-                    odoo_service.update_record('product.template.attribute.line', line_id, ({
-                        'value_ids': [(6, 0, value_ids)]
-                    }))
+                    # value_ids = list(value_map.values())
+                    # odoo_service.update_record('product.template.attribute.line', line_id, ({
+                    #     'value_ids': [(6, 0, value_ids)]
+                    # }))
                 else:
                     line_id = odoo_service.create_record('product.template.attribute.line', ({
                         'product_tmpl_id': template_id,
@@ -309,10 +244,10 @@ class ShopifyHelpers:
                         product_variant_map[shopify_variant['id']] = existing_variant['id']
                         
                         # Update existing variant
-                        odoo_service.update_record('product.product', existing_variant['id'], ({
-                            'weight': variant.get('weight', 0.0),
-                            'standard_price': variant.get('standard_price', 0.0)
-                        }))
+                        # odoo_service.update_record('product.product', existing_variant['id'], ({
+                        #     'weight': variant.get('weight', 0.0),
+                        #     'standard_price': variant.get('standard_price', 0.0)
+                        # }))
                         
                         result['updated'] += 1
                         continue
@@ -461,12 +396,12 @@ class ShopifyHelpers:
                     product_variant_map[shopify_variant['id']] = exact_match['id']
                     
                     # Update existing variant but keep identifiers
-                    odoo_service.update_record('product.product', exact_match['id'], ({
-                        'default_code': variant.get('default_code'),
-                        'barcode': variant.get('barcode'),
-                        'weight': variant.get('weight', 0.0),
-                        'standard_price': variant.get('standard_price', 0.0)
-                    }))
+                    # odoo_service.update_record('product.product', exact_match['id'], ({
+                    #     'default_code': variant.get('default_code'),
+                    #     'barcode': variant.get('barcode'),
+                    #     'weight': variant.get('weight', 0.0),
+                    #     'standard_price': variant.get('standard_price', 0.0)
+                    # }))
                     
                     return exact_match['id']
             
