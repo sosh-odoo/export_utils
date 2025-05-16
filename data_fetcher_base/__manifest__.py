@@ -15,6 +15,6 @@
         'views/transfer_log.xml'
     ],
     'installable': True,
-    'application': True,
+    'application': False,
     'license': 'LGPL-3',
 }

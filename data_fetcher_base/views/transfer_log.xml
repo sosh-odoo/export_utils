@@ -1,25 +1,67 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-<record id="transfer_log_list" model="ir.ui.view">
-    <field name="name">transfer.log.list</field>
-    <field name="model">transfer.log</field>
-    <field name="arch" type="xml">
-        <list string="Import Logs">
-            <field name="name"/>
-            <field name="sync_status"/>
-            <field name="transfer_category"/>
-            <field name="source"/>
-            <field name="error_message"/>
-            <field name="transfer_date"/>
-        </list>
-    </field>
-</record>
+    <!-- List View -->
+    <record id="transfer_log_list" model="ir.ui.view">
+        <field name="name">transfer.log.list</field>
+        <field name="model">transfer.log</field>
+        <field name="arch" type="xml">
+            <list string="Import Requests">
+                <field name="name" string="Username"/>
+                <field name="db_user" string="Partner"/>
+                <field name="db_name" string="Partner DB"/>
+                <field name="import_status"/>
+                <field name="source"/>
+                <field name="error_message"/>
+                <field name="transfer_date" string="Fetch Time"/>
+                <field name="import_date" string="Import Time"/>
+            </list>
+        </field>
+    </record>
 
-<record id="transfer_log_action" model="ir.actions.act_window">
-    <field name="name">Import Logs</field>
-    <field name="res_model">transfer.log</field>
-    <field name="view_mode">list</field>
-</record>
+    <!-- Form View -->
+    <record id="transfer_log_form" model="ir.ui.view">
+        <field name="name">transfer.log.form</field>
+        <field name="model">transfer.log</field>
+        <field name="arch" type="xml">
+            <form string="Transfer Log">
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="source" readonly="1"/>
+                        <field name="import_status" readonly="1"/>
+                        <field name="transfer_date" readonly="1"/>
+                        <field name="import_date" readonly="1"/>
+                        <field name="error_message" widget="text" readonly="1" invisible="error_message == False"/>
+                    </group>
 
-<menuitem id="import_root" name="Import Log" web_icon="data_fetcher_base, static/description/icon.png" sequence="1" action="transfer_log_action"></menuitem>
+                    <group string="Odoo Credentials">
+                        <field name="db_user" readonly="1" invisible="db_user == False"/>
+                        <field name="db_name" readonly="1" invisible="db_name == False"/>
+                    </group>
+
+                    <notebook>
+                        <page string="Attachments">
+                            <field name="attachment_ids" widget="attachment" readonly="1"/>
+                        </page>
+                    </notebook>
+
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="transfer_log_action" model="ir.actions.act_window">
+        <field name="name">Import Requests</field>
+        <field name="res_model">transfer.log</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <!-- Menu -->
+    <menuitem id="import_root"
+              name="Import Requests"
+              web_icon="data_fetcher_base, static/description/icon.png"
+              sequence="1"
+              action="transfer_log_action"
+              groups="base.group_system,base.group_erp_manager"/>
 </odoo>

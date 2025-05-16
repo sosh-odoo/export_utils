@@ -354,26 +354,3 @@ class OdooService:
         except Exception as error:
             _logger.error(f'Error checking if order exists: {str(error)}')
             raise error
-
-    def get_source_id(self, source_name: str) -> Optional[int]:
-        """
-        Get or create UTM source
-        """
-        if not source_name:
-            return None
-        
-        # Search for existing source
-        sources = self.search_read(
-            'utm.source',
-            [('name', '=', source_name)],
-            ['id'],
-            limit=1
-        )
-        
-        if sources:
-            return sources[0]['id']
-        
-        # Create new source
-        return self.create_record('utm.source', {
-            'name': source_name
-        })
