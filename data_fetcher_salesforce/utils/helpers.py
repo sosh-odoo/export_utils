@@ -112,3 +112,88 @@ class SalesforceHelper:
             limit=1
         )
         return titles[0]['id'] if titles else None
+    
+    def get_source_id(self, source_name: str, odoo_api) -> Optional[int]:
+        """
+        Get or create UTM source
+        """
+        if not source_name:
+            return None
+        
+        # Search for existing source
+        sources = odoo_api.search_read(
+            'utm.source',
+            [('name', '=', source_name)],
+            ['id'],
+            limit=1
+        )
+        
+        if sources:
+            return sources[0]['id']
+        
+        # Create new source
+        return odoo_api.create_record('utm.source', {
+            'name': source_name
+        })
+    
+    def get_state_id(self, state_name: str, odoo_api, country_id: int) -> Optional[int]:
+        """
+        Get or create state ID by name/code and country
+        """
+        if not state_name:
+            return None
+
+        domain = [('country_id', '=', country_id)]
+
+        # Create an OR domain to search by either name or code
+        if state_name:
+            domain.append('|')  # OR operator
+            domain.append(('name', 'ilike', state_name))
+            domain.append(('code', 'ilike', state_name))
+
+        states = odoo_api.search_read('res.country.state', domain, ['id'], limit=1)
+
+        if states:
+            return states[0]['id']
+        
+        # Create state if it doesn't exist
+        if state_name and country_id:
+            code = state_name[:2].upper()
+            state_id = odoo_api.create_record('res.country.state', {
+                'name': state_name,
+                'code': code,
+                'country_id': country_id,
+            })
+            return state_id
+        return None
+    
+    def get_country_id(self, country_name: str, odoo_api) -> Optional[int]:
+        """
+        Get or create country ID by name or code
+        """
+        if not country_name:
+            return None
+        
+        domain = []
+        
+        # Create an OR domain to search by either name or code
+        if country_name:
+            domain.append('|')  # OR operator
+            domain.append(('name', 'ilike', country_name))
+            domain.append(('code', 'ilike', country_name))
+        
+        countries = odoo_api.search_read('res.country', domain, ['id'], limit=1)
+        
+        if countries:
+            return countries[0]['id']
+        
+        # Create country if it doesn't exist
+        if country_name:
+            code = country_name[:2].upper()
+            country_id = odoo_api.create_record('res.country', {
+                'name': country_name,
+                'code': code,
+            })
+            return country_id
+        return None
+    

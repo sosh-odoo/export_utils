@@ -7,10 +7,9 @@
     "version": "1.0",
     "depends": ["data_fetcher_base"],
     "data": [
-        "data/sync_cron.xml",
-        # "security/ir.model.access.csv",
+        "data/odoo_import_cron.xml",
         "views/portal_credentials_form.xml",
-        # 'views/salesforce_transfer_log.xml',
     ],
     'license': 'LGPL-3',
+    'application': True
 }

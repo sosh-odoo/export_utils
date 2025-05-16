@@ -38,15 +38,17 @@ def fetch_opportunities():
 
 def fetch_products(standard_pricebook_id):
     query = f"""
-            SELECT Id, Name, ProductCode, Description, IsActive, Family, 
-                StockKeepingUnit,
-                (SELECT Id, Product2Id, UnitPrice, Pricebook2Id, IsActive 
-                    FROM PricebookEntries 
-                    WHERE IsActive = TRUE 
-                    AND Pricebook2Id = '{standard_pricebook_id}')
-            FROM Product2
-            WHERE IsActive = TRUE
+        SELECT Id, Name, ProductCode, Description, IsActive, Family, 
+            StockKeepingUnit,
+            (SELECT Id, Product2Id, UnitPrice, Pricebook2Id, IsActive 
+                FROM PricebookEntries 
+                WHERE IsActive = TRUE 
+                AND Pricebook2Id = '{standard_pricebook_id}')
+        FROM Product2
+        WHERE IsActive = TRUE
         """
+        #removed Type(salesforce without CPQ and billing)
+        #removed SBQQ__ChargeType__c(in salesforce with CPQ and billing)
     return query
 
 def fetch_orders():

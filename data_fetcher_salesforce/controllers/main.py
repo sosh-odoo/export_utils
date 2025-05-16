@@ -2,11 +2,11 @@ from odoo import http
 from odoo.http import request
 import logging
 from ..utils.salesforce import SalesforceAPI
-from odoo.addons.data_fetcher_base.controllers.main import SyncController as BaseSyncController # type: ignore
+from odoo.addons.data_fetcher_base.controllers.main import ImportController as BaseImportController # type: ignore
 
 logger = logging.getLogger(__name__)
 
-class SalesforceSync(BaseSyncController):
+class SalesforceImport(BaseImportController):
 
     def _handle_salesforce(self, data):
         """Handle Salesforce data transfer"""
@@ -17,7 +17,7 @@ class SalesforceSync(BaseSyncController):
             'password': data.get('sf_password'),
             'security_token': data.get('sf_security_token'),
         }
-        
+
         # Store service-specific credentials if needed
         config = request.env['ir.config_parameter'].sudo()
         for key, value in salesforce_creds.items():
@@ -28,7 +28,7 @@ class SalesforceSync(BaseSyncController):
         sf_api = SalesforceAPI(salesforce_creds)
         if sf_api.authenticate():
             logger.info("Salesforce API authenticated successfully.")
-            request.env['transfer.log'].sync_all(sf_api)
+            request.env['transfer.log'].fetch_all(sf_api, data)
             return self.transfer_success()
         else:
             logger.error("Salesforce API authentication failed.")

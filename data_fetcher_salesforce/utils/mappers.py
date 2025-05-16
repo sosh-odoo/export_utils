@@ -70,8 +70,8 @@ def map_lead_to_crm(sf_lead: Dict[str, Any]) -> Dict[str, Any]:
         "email_from": sf_lead.get("Email"),
         "phone": sf_lead.get("Phone"),
         "website": sf_lead.get("Website"),
-        # title will be resolved by the sync process
-        # source_id will be resolved by the sync process
+        # title will be resolved by the import process
+        # source_id will be resolved by the import process
         "active": "true", # always true to make record accessible
         # expected_revenue will be calculated based on AnnualRevenue if present
         "description": sf_lead.get("Description"),
@@ -85,11 +85,11 @@ def map_opportunity_to_crm(sf_opportunity: Dict[str, Any]) -> Dict[str, Any]:
         "referred": sf_opportunity.get("Id"),
         "name": sf_opportunity.get("Name"),
         "type": "opportunity",
-        # partner_id will be resolved by the sync process
+        # partner_id will be resolved by the import process
         "date_deadline": sf_opportunity.get("CloseDate"),
         "expected_revenue": sf_opportunity.get("Amount", 0.0),
         "probability": sf_opportunity.get("Probability", 0.0),
-        # stage_id will be resolved by the sync process
+        # stage_id will be resolved by the import process
         "active": "true", # always true to make record accessible
         "ref": sf_opportunity.get("AccountId") 
     }
@@ -127,7 +127,7 @@ def map_order_to_odoo(sf_order: Dict[str, Any]) -> Dict[str, Any]:
         "client_order_ref": sf_order.get("PoNumber", ""),
         "amount_total": sf_order.get("TotalAmount", 0.0),
         "state": state,
-        # partner_id will be resolved by the sync process
+        # partner_id will be resolved by the import process
     }
 
 def map_order_line_to_odoo(sf_order_item: Dict[str, Any]) -> Dict[str, Any]:
@@ -140,6 +140,6 @@ def map_order_line_to_odoo(sf_order_item: Dict[str, Any]) -> Dict[str, Any]:
         "product_uom_qty": sf_order_item.get("Quantity", 1.0),
         "price_unit": sf_order_item.get("UnitPrice", 0.0),
         "price_subtotal": sf_order_item.get("TotalPrice", 0.0),
-        # product_id will be resolved by the sync process
-        # order_id will be resolved by the sync process
+        # product_id will be resolved by the import process
+        # order_id will be resolved by the import process
     }

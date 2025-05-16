@@ -1,7 +1,7 @@
 import requests
 import logging
 from typing import Dict, Any, List, Optional
-logger = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
 
 class SalesforceAPI:
     def __init__(self, credentials):
@@ -22,18 +22,18 @@ class SalesforceAPI:
             }
             
             response = requests.post(auth_url, data=data)
-            
+
             if response.status_code == 200:
                 result = response.json()
                 self.access_token = result.get("access_token")
                 self.instance_url = result.get("instance_url")
-                logger.info(f"Authenticated with Salesforce: {self.instance_url}")
+                _logger.info(f"Authenticated with Salesforce: {self.instance_url}")
                 return True
             else:
-                logger.error(f"Failed to authenticate with Salesforce: {response.text}")
+                _logger.error(f"Failed to authenticate with Salesforce: {response.text}")
                 return False
         except Exception as e:
-            logger.error(f"Error authenticating with Salesforce: {str(e)}")
+            _logger.error(f"Error authenticating with Salesforce: {str(e)}")
             return False
     
     def get_request_headers(self) -> Dict[str, str]:
@@ -53,21 +53,19 @@ class SalesforceAPI:
             url = f"{self.instance_url}/services/data/v59.0/query/?q={paginated_query}"
             
             response = requests.get(url, headers=self.get_request_headers())
-            
-            if response.status_code == 200:
 
+            if response.status_code == 200:
                 return response.json().get("records", [])
-            
             elif response.status_code == 401:  # Token expired
-                logger.info("Salesforce token expired. Re-authenticating...")
+                _logger.info("Salesforce token expired. Re-authenticating...")
                 if not self.authenticate():
                     return []
                 # Retry the query
                 return self.query(soql_query)
             else:
-                logger.error(f"Salesforce API error: {response.text}")
+                _logger.error(f"Salesforce API error: {response.text}")
                 return []
         except Exception as e:
-            logger.error(f"Error querying Salesforce: {str(e)}")
+            _logger.error(f"Error querying Salesforce: {str(e)}")
             return []
         
