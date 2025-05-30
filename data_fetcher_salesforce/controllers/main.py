@@ -17,13 +17,7 @@ class SalesforceImport(BaseImportController):
             'password': data.get('sf_password'),
             'security_token': data.get('sf_security_token'),
         }
-
-        # Store service-specific credentials if needed
-        config = request.env['ir.config_parameter'].sudo()
-        for key, value in salesforce_creds.items():
-            if value:
-                config.set_param(f'data_fetcher_salesforce.{key}', value)
-                
+        
         # Initialize API
         sf_api = SalesforceAPI(salesforce_creds)
         if sf_api.authenticate():
